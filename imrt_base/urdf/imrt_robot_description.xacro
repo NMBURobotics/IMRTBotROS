@@ -14,7 +14,8 @@
   <link name="base_link">
     <visual>
       <geometry>
-	      <cylinder length="${platform_height}" radius="${platform_diameter/2}" />
+	      <!--cylinder length="${platform_height}" radius="${platform_diameter/2}" /-->
+        <mesh filename="package://imrt_base/meshes/imrtbot_stl.STL" />
       </geometry>
       <origin xyz="0 0 ${platform_height/2}" rpy="0 0 0" />
       <material name="white" />
