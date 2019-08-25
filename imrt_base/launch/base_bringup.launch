@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+
+<launch>
+
+  <param name="robot_description" command="$(find xacro)/xacro '$(find imrt_base)/urdf/imrt_robot_description.xacro'" />
+
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" />
+
+  <node pkg="imrt_base" type="imrt_robot_base_driver.py" name="imrt_robot_base_driver" output="screen" />
+
+</launch>

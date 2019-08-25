@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="imrt_robot">
+
+  <xacro:property name="platform_height" value="0.15" />
+  <xacro:property name="platform_diameter" value="0.395" />
+  <xacro:property name="sonic_height" value="0.10" />
+
+
+  <material name="white" >
+    <color rgba="1 1 1 1" />
+  </material>
+
+
+  <link name="base_link">
+    <visual>
+      <geometry>
+	      <cylinder length="${platform_height}" radius="${platform_diameter/2}" />
+      </geometry>
+      <origin xyz="0 0 ${platform_height/2}" rpy="0 0 0" />
+      <material name="white" />
+    </visual>
+  </link>
+
+  <link name="sonic_frame" />
+
+  <joint name="base_link__sonic_frame" type="fixed">
+    <parent link="base_link" />
+    <child link="sonic_frame" />
+    <origin xyz="0 0 ${sonic_height}" rpy="0 0 0" />
+  </joint>
+
+</robot>

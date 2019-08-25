@@ -1,0 +1,182 @@
+#!/usr/bin/env python
+
+# Example code for teleoperating the IMRT100 robot
+# using an app called Blue Dot
+#
+# This is an example of an event-driven program
+# The program will wait for something to happen in the
+# Blue Dot app on the paired device. When the user presses the
+# blue dot in the Blue Dot app, it will trigger a function call
+# in this program.
+
+
+# Import some modules that we will need
+import imrt_robot_serial
+#import signal
+import sys
+import time
+import rospy
+from geometry_msgs.msg import Twist, Vector3, Pose, Quaternion, Point
+from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import Odometry
+import tf
+from math import sin, cos
+from operator import add
+
+
+class IMRTRobot:
+
+    # Robot dimentions
+    ROBOT_WIDTH = 0.35 # m
+
+    def __init__(self):
+        # Create motor serial object
+        self._robot_x = 0
+        self._robot_y = 0
+        self._robot_yaw = 0
+        self._pose_cov = [0., 0., 0., 0., 0., 0.,
+                          0., 0., 0., 0., 0., 0.,
+                          0., 0., 0., 0., 0., 0.,
+                          0., 0., 0., 0., 0., 0.,
+                          0., 0., 0., 0., 0., 0.,
+                          0., 0., 0., 0., 0., 0.]
+
+        self._use_all_sens = True
+
+        self.motor_serial = imrt_robot_serial.IMRTRobotSerial()
+        rospy.Subscriber("teleop/cmd_vel", Twist, self.cmd_callback)
+        self.scan_pub = rospy.Publisher('sonics_scan', LaserScan, queue_size=1)
+        self.odom_pub = rospy.Publisher('odometry', Odometry, queue_size=1)
+        self._tf_broadcaster = tf.TransformBroadcaster()
+
+
+        # Open serial port. Exit if serial port cannot be opened
+        try:
+            self.motor_serial.connect("/dev/ttyACM0")
+        except:
+            ros.loginfo("Could not open port. Is your robot connected?\nExiting program")
+            sys.exit()
+        
+            
+        # Start serial receive thread
+        self.motor_serial.run()
+   
+        rospy.loginfo("Running..")
+
+    
+    def cmd_callback(self, twist):
+        # use pos.x, pos.y and pos.distance to determin vx and wz
+        vx = twist.linear.x
+        wz = twist.angular.z
+        # calculate motor commands
+        v1 = (vx - self.ROBOT_WIDTH * wz / 2.)
+        v2 = (vx + self.ROBOT_WIDTH * wz / 2.)
+             
+        # send motor commands
+        self.motor_serial.send_command(v1, v2)
+
+
+    def publish_odometry(self):
+
+        speed_feedback = self.motor_serial.get_motor_speed()
+        v1 = speed_feedback[0]
+        v2 = speed_feedback[1]
+
+        wz = (v2 - v1) / self.ROBOT_WIDTH
+        vx = v1 + self.ROBOT_WIDTH * wz / 2
+
+        dt = 0.1
+        self._robot_x += vx * cos(self._robot_yaw) * dt
+        self._robot_y += vx * sin(self._robot_yaw) * dt
+        self._robot_yaw += wz * dt
+        quat = tf.transformations.quaternion_from_euler(0, 0, self._robot_yaw)
+
+        odom_msg = Odometry()
+        odom_msg.header.frame_id = "odom"
+        odom_msg.header.stamp = rospy.Time.now()
+        odom_msg.child_frame_id = "base_link"
+        odom_msg.twist.twist.linear.x = vx
+        odom_msg.twist.twist.linear.y = 0
+        odom_msg.twist.twist.angular.z = wz
+        odom_msg.twist.covariance = [0.010, 0.000, 0.000, 0.000, 0.000, 0.000,
+                                     0.000, 0.010, 0.000, 0.000, 0.000, 0.000,
+                                     0.000, 0.000, 0.010, 0.000, 0.000, 0.000,
+                                     0.000, 0.000, 0.000, 0.000, 0.000, 0.000,
+                                     0.000, 0.000, 0.000, 0.000, 0.000, 0.000,
+                                     0.000, 0.000, 0.000, 0.000, 0.000, 0.001]
+
+        odom_msg.pose.pose.position = Point(self._robot_x, self._robot_y, 0)
+        odom_msg.pose.pose.orientation = Quaternion(*quat)
+        self._pose_cov = [sum(x) for x in zip(self._pose_cov, odom_msg.twist.covariance)]
+        odom_msg.pose.covariance = self._pose_cov
+
+
+        self.odom_pub.publish(odom_msg)
+
+        self._tf_broadcaster.sendTransform((self._robot_x, self._robot_y, 0),
+                                           quat,
+                                           rospy.Time.now(),
+                                           "base_link",
+                                           "odom")
+
+
+    def publish_feedback(self):        
+        scan_msg = LaserScan()
+        scan_msg.header.frame_id = 'sonic_frame'
+        scan_msg.header.stamp = rospy.Time.now()
+        scan_msg.angle_min = -0.8377
+        scan_msg.angle_max = 0.8377
+        scan_msg.angle_increment = 0.5585 / (1 + (self._use_all_sens))
+        #scan_msg.time_increment = 0.0
+        #scan_msg.scan_time = 0.1
+        scan_msg.range_min = 0.1876
+        scan_msg.range_max = 2.00
+        ranges = []
+        ranges.append(self.motor_serial.get_dist_1() / 100. + 0.1875)  
+        if self._use_all_sens: ranges.append(self.motor_serial.get_dist_5() / 100. + 0.1875)
+        ranges.append(self.motor_serial.get_dist_2() / 100. + 0.1875)
+        if self._use_all_sens: ranges.append(self.motor_serial.get_dist_6() / 100. + 0.1875)
+        ranges.append(self.motor_serial.get_dist_3() / 100. + 0.1875)
+        if self._use_all_sens: ranges.append(self.motor_serial.get_dist_7() / 100. + 0.1875)
+        ranges.append(self.motor_serial.get_dist_4() / 100. + 0.1875)
+        scan_msg.ranges = ranges
+        self.scan_pub.publish(scan_msg)
+
+
+
+    def shutdown(self):
+        self.motor_serial.shutdown()
+
+
+
+##################################################
+# This is where our program will start executing #
+#################################################
+
+def main():
+    
+    rospy.init_node('base_driver', anonymous=True)
+    rospy.loginfo("IMRT Robot base driver starting")
+
+    imrt_robot = IMRTRobot()
+    try: 
+        while not rospy.is_shutdown():
+            imrt_robot.publish_feedback()
+            imrt_robot.publish_odometry()
+            rospy.sleep(0.1)
+    except KeyboardInterrupt:
+        rospy.loginfo("Terminated by user")
+    finally:
+        imrt_robot.shutdown()
+        rospy.loginfo("Goodbye")
+
+
+
+if __name__ == '__main__':
+    main()
+
+            
+
+
+
+
