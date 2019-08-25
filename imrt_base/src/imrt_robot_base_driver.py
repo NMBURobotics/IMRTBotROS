@@ -54,7 +54,7 @@ class IMRTRobot:
         try:
             self.motor_serial.connect("/dev/ttyACM0")
         except:
-            ros.loginfo("Could not open port. Is your robot connected?\nExiting program")
+            rospy.loginfo("Could not open port. Is your robot connected?\nExiting program")
             sys.exit()
         
             

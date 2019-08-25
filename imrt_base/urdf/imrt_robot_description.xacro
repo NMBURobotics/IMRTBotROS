@@ -1,15 +1,25 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="imrt_robot">
 
-  <xacro:property name="platform_height" value="0.15" />
+  <xacro:property name="platform_height" value="0.0" />
   <xacro:property name="platform_diameter" value="0.395" />
   <xacro:property name="sonic_height" value="0.10" />
+  <xacro:property name="wheel_diameter" value="0.1524" />
+  <xacro:property name="wheel_depth" value="0.026" />
+  <xacro:property name="track_width" value="0.340" />
 
 
   <material name="white" >
     <color rgba="1 1 1 1" />
   </material>
 
+  <material name="black" >
+    <color rgba="0 0 0 1" />
+  </material>
+
+  <material name="gray" >
+    <color rgba="0.5 0.5 0.5 1" />
+  </material>
 
   <link name="base_link">
     <visual>
@@ -17,12 +27,76 @@
 	      <!--cylinder length="${platform_height}" radius="${platform_diameter/2}" /-->
         <mesh filename="package://imrt_base/meshes/imrtbot_stl.STL" />
       </geometry>
-      <origin xyz="0 0 ${platform_height/2}" rpy="0 0 0" />
+      <origin xyz="${0.395/2} ${0.34898/2} ${platform_height/2}" rpy="${pi/2} 0 -${pi/2}" />
       <material name="white" />
     </visual>
   </link>
 
   <link name="sonic_frame" />
+
+  <link name="wheel_left" >
+    <visual>
+      <geometry>
+	    <cylinder length="${wheel_depth}" radius="${wheel_diameter/2}" />
+      </geometry>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+      <material name="black" />
+    </visual>
+  </link>
+  
+  <link name="wheel_right" >
+    <visual>
+      <geometry>
+	    <cylinder length="${wheel_depth}" radius="${wheel_diameter/2}" />
+      </geometry>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+      <material name="black" />
+    </visual>
+  </link>
+
+  <link name="wheel_rim_left" >
+    <visual>
+      <geometry>
+	    <cylinder length="${1.05*wheel_depth}" radius="${0.6*wheel_diameter/2}" />
+      </geometry>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+      <material name="gray" />
+    </visual>
+  </link>
+  
+  <link name="wheel_rim_right" >
+    <visual>
+      <geometry>
+	    <cylinder length="${1.05*wheel_depth}" radius="${0.6*wheel_diameter/2}" />
+      </geometry>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+      <material name="gray" />
+    </visual>
+  </link>
+
+  <joint name="base_link__wheel_left" type="fixed">
+    <parent link="base_link" />
+    <child link="wheel_left" />
+    <origin xyz="0 ${track_width/2} ${wheel_diameter/2}" rpy="0 0 0" />
+  </joint>
+
+  <joint name="base_link__wheel_right" type="fixed">
+    <parent link="base_link" />
+    <child link="wheel_right" />
+    <origin xyz="0 ${-track_width/2} ${wheel_diameter/2}" rpy="0 0 0" />
+  </joint>
+
+  <joint name="wheel_left__wheel_rim_left" type="fixed">
+    <parent link="wheel_left" />
+    <child link="wheel_rim_left" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+
+  <joint name="wheel_right__wheel_rim_right" type="fixed">
+    <parent link="wheel_right" />
+    <child link="wheel_rim_right" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
 
   <joint name="base_link__sonic_frame" type="fixed">
     <parent link="base_link" />
