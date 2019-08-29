@@ -1,0 +1,50 @@
+<?xml version="1.0" ?>
+<launch>
+
+ <arg name="tf_prefix" default="" />
+ <arg name="publish_tf" default="true" />
+   
+ <!-- EKF localization LOCAL node -->
+ <node pkg="robot_localization" type="ekf_localization_node" name="ekf_localization_local" clear_params="true">
+
+  <param name="frequency" value="20"/>
+  <param name="sensor_timeout" value="0.1"/>
+  <param name="two_d_mode" value="true"/>
+
+  <param name="odom_frame" value="odom"/>
+  <param name="base_link_frame" value="$(arg tf_prefix)/base_link"/>
+  <param name="world_frame" value="odom"/>
+
+  <param name="transform_time_offset" value="0.0"/>
+  
+  <param name="odom0" value="odometry/base_raw"/>
+  <param name="imu0" value="imu/base_raw"/>
+
+  <rosparam param="odom0_config">[false, false, false,
+                                  false, false, false,
+                                  true, true, false,
+                                  false, false, true,
+                                  false, false, false]</rosparam>
+
+  <rosparam param="imu0_config">[false, false, false,
+                                 false, false, false,
+                                 false, false, false,
+                                 false, false, true,
+                                 false,  false,  false]</rosparam>
+
+
+  
+  <param name="odom0_differential" value="false"/>
+  <param name="imu0_differential" value="false"/>
+
+  <param name="odom0_relative" value="true"/>
+  <param name="imu0_relative" value="true"/>
+
+  <param name="publish_tf" value="$(arg publish_tf)"/>
+
+  <remap from="odometry/filtered" to="odometry/filtered/local"/>
+  
+ </node>
+
+
+</launch>

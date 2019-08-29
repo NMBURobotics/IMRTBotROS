@@ -139,6 +139,7 @@ class IMRTRobot:
         ranges.append(self.motor_serial.get_dist_3() / 100. + 0.1875)
         if self._use_all_sens: ranges.append(self.motor_serial.get_dist_7() / 100. + 0.1875)
         ranges.append(self.motor_serial.get_dist_4() / 100. + 0.1875)
+        ranges = [beem if beem < 2.5 else float('Inf') for beem in ranges]
         scan_msg.ranges = ranges
         self.scan_pub.publish(scan_msg)
 

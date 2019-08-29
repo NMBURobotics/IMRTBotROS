@@ -4,6 +4,7 @@
   <xacro:property name="platform_height" value="0.0" />
   <xacro:property name="platform_diameter" value="0.395" />
   <xacro:property name="sonic_height" value="0.10" />
+  <xacro:property name="laser_height" value="0.10" />
   <xacro:property name="wheel_diameter" value="0.1524" />
   <xacro:property name="wheel_depth" value="0.026" />
   <xacro:property name="track_width" value="0.340" />
@@ -33,6 +34,8 @@
   </link>
 
   <link name="sonic_frame" />
+
+  <link name="laser" />
 
   <link name="wheel_left" >
     <visual>
@@ -102,6 +105,12 @@
     <parent link="base_link" />
     <child link="sonic_frame" />
     <origin xyz="0 0 ${sonic_height}" rpy="0 0 0" />
+  </joint>
+
+  <joint name="base_link__laser" type="fixed">
+    <parent link="base_link" />
+    <child link="laser" />
+    <origin xyz="0 0 ${laser_height}" rpy="0 0 0" />
   </joint>
 
 </robot>
