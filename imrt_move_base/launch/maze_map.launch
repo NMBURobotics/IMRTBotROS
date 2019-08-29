@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Run the map server with empty map -->
+  <node name="map_server" pkg="map_server" type="map_server" args="$(find imrt_move_base)/maps/map.yaml"/>
+
+</launch>

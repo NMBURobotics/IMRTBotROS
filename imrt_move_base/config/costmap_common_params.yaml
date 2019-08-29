@@ -2,7 +2,8 @@ global_frame: map
 robot_base_frame: base_link
 
 #footprint: [[0.785, 0.60], [0.785, -0.60], [-0.785, -0.60], [-0.785, 0.60]]
-footprint: [[0.67, 0.385], [0.67, -0.385], [-0.67, -0.385], [-0.67, 0.385]]
+#footprint: [[0.67, 0.385], [0.67, -0.385], [-0.67, -0.385], [-0.67, 0.385]]
+robot_radius: 0.20
 
 map_layer:
   map_topic: map
@@ -11,11 +12,11 @@ map_layer:
   # map_topic: no_go_map
 
 global_inflation_layer:
-  inflation_radius: 0.6
+  inflation_radius: 0.2
   cost_scaling_factor: 5.0
 
 local_inflation_layer:
-  inflation_radius: 0.6
+  inflation_radius: 0.2
   cost_scaling_factor: 5.0
 
 obstacle_layer:

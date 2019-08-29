@@ -5,18 +5,18 @@ DWAPlannerROS:
 
   acc_lim_x: 1.0
   acc_limit_trans: 0.5
-  acc_lim_y: 0.2
+  acc_lim_y: 0
   acc_lim_theta: 2.0 #default: 2.0
   
   
-  min_vel_x: 0.0
-  max_vel_x: 0.50
-  min_trans_vel: 0.05
-  max_trans_vel: 0.50
+  min_vel_x: 0.1
+  max_vel_x: 0.15
+  min_trans_vel: 0.1
+  max_trans_vel: 0.15
   min_vel_y: 0.0
-  max_vel_y: 0.35 #default:0.35
-  max_rot_vel: 0.5
-  min_rot_vel: 0.1
+  max_vel_y: 0.0 #default:0.35
+  max_rot_vel: 1.0
+  min_rot_vel: 0.4
   
   
   rot_stopped_vel: 0.01 #Below what maximum velocity we consider the robot to be stopped in translation", 0.1)
@@ -47,4 +47,4 @@ DWAPlannerROS:
   forward_point_distance: 1.0
 
   prune_plan: true
-  holonomic_robot: true
+  holonomic_robot: false
