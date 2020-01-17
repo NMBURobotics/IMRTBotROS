@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+
+<launch>
+
+  <arg name="joy_dev" default="/dev/input/js0" />
+  <arg name="joy_autorepeat_rate" default="20" />
+  <arg name="joy_deadzone" default="0.2" />
+  <arg name="teleop_controller" value="$(find thorvald_teleop)/config/logitech_f710.yaml" />
+
+  
+  <include file="$(find thorvald_teleop)/launch/teleop.launch" >
+    <arg name="joy_dev" value="$(arg joy_dev)" />
+    <arg name="joy_autorepeat_rate" value="$(arg joy_autorepeat_rate)" />
+    <arg name="joy_deadzone" value="$(arg joy_deadzone)" />
+    <arg name="teleop_controller" value="$(arg teleop_controller)" />
+  </include>
+
+</launch>
