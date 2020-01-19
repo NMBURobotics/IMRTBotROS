@@ -11,7 +11,7 @@
 
 
 # Import some modules that we will need
-import imrt_robot_serial
+import imrt_base
 #import signal
 import sys
 import time
@@ -43,7 +43,7 @@ class IMRTRobot:
 
         self._use_all_sens = True
 
-        self.motor_serial = imrt_robot_serial.IMRTRobotSerial()
+        self.motor_serial = imrt_base.IMRTRobotSerial()
         rospy.Subscriber("teleop/cmd_vel", Twist, self.cmd_callback)
         self.scan_pub = rospy.Publisher('sonics_scan', LaserScan, queue_size=1)
         self.odom_pub = rospy.Publisher('odometry', Odometry, queue_size=1)

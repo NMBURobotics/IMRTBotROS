@@ -10,6 +10,7 @@ import threading
 import time
 import signal
 import ctypes
+from math import pi
 
 
 
@@ -17,7 +18,7 @@ import ctypes
 class IMRTRobotSerial :
 
     MSG_SIZE = 26
-    SPEED_MULTIPLIER = 500.
+    SPEED_MULTIPLIER = 10
 
     # Constructor
     def __init__(self):
@@ -27,14 +28,16 @@ class IMRTRobotSerial :
         # Mutex
         self._mutex = threading.Lock()
 
+        # Robot paramters
+        self._wheel_radius = 0.075
+
         # Sonic members
         self._dist_1 = 255
         self._dist_2 = 255
         self._dist_3 = 255
         self._dist_4 = 255
-        self._dist_5 = 255
-        self._dist_6 = 255
-        self._dist_7 = 255
+        self._v1 = 0
+        self._v2 = 0
 
         # Motor feedback members
         self._motor_1_current = 0
@@ -61,6 +64,13 @@ class IMRTRobotSerial :
         self.serial_port_ = serial.Serial(port_name, baudrate=115200, timeout=3)
         print(__name__ + ": Connected to: ", port_name)
         return True
+
+
+    # Method for seting wheel radius
+    def set_wheel_diameter(self, wheel_diameter):
+        self._wheel_radius = wheel_diameter / 2
+
+
 
 
 
@@ -97,8 +107,9 @@ class IMRTRobotSerial :
         # Our message will contain the following 10 bytes:
         # [header, cmd1_high, cmd1_low, cmd2_high, cmd2_low, not_used, not_used, checksum_high, checksum_low, newline]
         # Values that cannot fit into one byte are split into two bytes (xx_high, xx_low) using bitwise logic
-        cmd_1 = int(v1 * self.SPEED_MULTIPLIER)
-        cmd_2 = int(v2 * self.SPEED_MULTIPLIER)
+        cmd_1 = int(self.SPEED_MULTIPLIER * v1 / self._wheel_radius )
+        cmd_2 = int(self.SPEED_MULTIPLIER * v2 / self._wheel_radius )
+        #print "cmd_1: ", cmd_1, ", cmd_2: ", cmd_2
         tx_msg = [0] * self.MSG_SIZE
 
         tx_msg[0]  = ord('c')               # msg header
@@ -175,7 +186,7 @@ class IMRTRobotSerial :
     def get_dist_5(self):
         
         self._mutex.acquire()
-        dist = self._dist_5
+        dist = 0 #self._dist_5
         self._mutex.release()
         
         return dist
@@ -187,7 +198,7 @@ class IMRTRobotSerial :
     def get_dist_6(self):
         
         self._mutex.acquire()
-        dist = self._dist_6
+        dist = 0 #self._dist_6
         self._mutex.release()
         
         return dist
@@ -199,7 +210,7 @@ class IMRTRobotSerial :
     def get_dist_7(self):
         
         self._mutex.acquire()
-        dist = self._dist_7
+        dist = 0 #self._dist_7
         self._mutex.release()
         
         return dist
@@ -239,13 +250,14 @@ class IMRTRobotSerial :
     def _rx_thread(self) :
 
         while self._run_event.is_set() :
-            rx_msg = self.serial_port_.readline()
+            rx_msg = self.serial_port_.read(size=self.MSG_SIZE)
             rx_msg = bytearray(rx_msg)
             
             if(len(rx_msg) == self.MSG_SIZE) :
                 crc_calc = self._crc16(rx_msg[0:-3])
                 crc_msg = (rx_msg[-3] & 0xff) << 8 | (rx_msg[-2] & 0xff)
                 crc_ok = (crc_calc == crc_msg)
+                print "len ok"
 
                 if crc_ok and rx_msg[0] == ord('f'):
                     self._mutex.acquire()
@@ -253,14 +265,18 @@ class IMRTRobotSerial :
                     self._dist_2 = (rx_msg[2] & 0xff)
                     self._dist_3 = (rx_msg[3] & 0xff)
                     self._dist_4 = (rx_msg[4] & 0xff)
-                    self._dist_5 = (rx_msg[5] & 0xff)
-                    self._dist_6 = (rx_msg[6] & 0xff)
-                    self._dist_7 = (rx_msg[7] & 0xff)
                     self._motor_1_current = (rx_msg[-11] & 0xff) << 8 | (rx_msg[-10] & 0xff)
                     self._motor_2_current = (rx_msg[-9] & 0xff) << 8 | (rx_msg[-8] & 0xff)
-                    self._motor_1_speed  = float(self._convert_byte(rx_msg[-7] & 0xff) << 8 | (rx_msg[-6] & 0xff)) / self.SPEED_MULTIPLIER
-                    self._motor_2_speed  = float(self._convert_byte(rx_msg[-5] & 0xff) << 8 | (rx_msg[-4] & 0xff)) / self.SPEED_MULTIPLIER
+                    self._motor_1_speed  = float(self._convert_byte(rx_msg[5] & 0xff) << 8 | (rx_msg[6] & 0xff)) / self.SPEED_MULTIPLIER * self._wheel_radius
+                    self._motor_2_speed  = float(self._convert_byte(rx_msg[7] & 0xff) << 8 | (rx_msg[8] & 0xff)) / self.SPEED_MULTIPLIER * self._wheel_radius
+                    print "m1: ", self._motor_1_speed, ", m2: ", self._motor_2_speed
                     self._mutex.release()
+                else:
+                    print "crc not ok"
+                    self.serial_port_.read(size=1)
+            else:
+                print "len not ok"
+                    
 
 
   

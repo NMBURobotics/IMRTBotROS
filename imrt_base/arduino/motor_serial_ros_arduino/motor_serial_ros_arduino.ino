@@ -61,11 +61,11 @@ double integral_limit_ = 400;
 #define SONIC_NUM 4
 #define MAX_DISTANCE 255
 
-//NewPing sonics_[SONIC_NUM] = {NewPing( 3,  3, MAX_DISTANCE),
-//                              NewPing(11, 11, MAX_DISTANCE),
-//                              NewPing(A2, A2, MAX_DISTANCE),
-//                              NewPing(A3, A3, MAX_DISTANCE)                          
-//                             };
+NewPing sonics_[SONIC_NUM] = {NewPing( 3,  3, MAX_DISTANCE),
+                              NewPing( 5,  5, MAX_DISTANCE),
+                              NewPing(11, 11, MAX_DISTANCE),
+                              NewPing(13, 13, MAX_DISTANCE)                          
+                             };
 
 
 
@@ -200,44 +200,18 @@ ISR (PCINT1_vect) // handle pin change interrupt for A0 to A5 here
 
 void stopIfFault()
 {
-//  if (md.getM1Fault())
-//  {
-//    Serial.println("M1 fault");
-//    while(1);
-//  }
-//  if (md.getM2Fault())
-//  {
-//    Serial.println("M2 fault");
-//    while(1);
-//  }
+  if (md.getM1Fault())
+  {
+    Serial.println("M1 fault");
+    while(1);
+  }
+  if (md.getM2Fault())
+  {
+    Serial.println("M2 fault");
+    while(1);
+  }
 }
 
-int calculateCommand(int current_speed, int target_speed)
-{
-  int error;
-  int command;
-
-  // Make sure target is within legal range
-  if (abs(target_speed) > V_MAX)
-  {
-    target_speed = V_MAX * (target_speed / abs(target_speed));
-  }
-
-  // Calculate error
-  error = target_speed - current_speed;
-
-  if (abs(error) < V_STEP)
-  {
-    command = target_speed;
-  }
-  else
-  {
-    command = current_speed + V_STEP * (error / abs(error));
-  }
-
-  return command;
-  
-}
 
 
 
@@ -314,8 +288,9 @@ void loop()
     // If the checkums match, we accept the command
     if (crc_msg == crc_calc)
     {
-      m1_target_ = ( (rx_buffer_[1] & 0xff) << 8 ) | ( (rx_buffer_[2] & 0xff) );
-      m2_target_ = ( (rx_buffer_[3] & 0xff) << 8 ) | ( (rx_buffer_[4] & 0xff) );
+      m1_target_ = ( ( ( (rx_buffer_[1] & 0xff) << 8 ) | ( (rx_buffer_[2] & 0xff) ) ) * 144 / (2 * PI * 10) );
+      m2_target_ = ( ( ( (rx_buffer_[3] & 0xff) << 8 ) | ( (rx_buffer_[4] & 0xff) ) ) * 144 / (2 * PI * 10) );
+      
       prev_cmd_msg_time_ = current_time;
     }
     else
@@ -409,46 +384,13 @@ void loop()
       m2_stall_count_ = 0;
     }
 
-
-
-
     m1_speed_prev_ = m1_speed_;
     m2_speed_prev_ = m2_speed_;
-
-
-
-    
     
   }
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // We want to update commands at a set frequency
-  if (current_time > next_cmd_time_)
-//  {
-//    m1_cmd_ = calculateCommand(m1_cmd_, m1_target_);
-//    m2_cmd_ = calculateCommand(m2_cmd_, m2_target_);
-//    next_cmd_time_ += 1000 / CMD_RATE;
-//  }
 
 
   // Send commands to motor controller
@@ -457,41 +399,53 @@ void loop()
   stopIfFault();
 
 
-//  // Get and transmit feedback
-//  if (current_time > next_feedback_time_)
-//  {
-//    int sonic_1 = sonics_[0].ping_cm();
-//    int sonic_2 = sonics_[1].ping_cm();
-//    int sonic_3 = sonics_[2].ping_cm();
-//    int sonic_4 = sonics_[3].ping_cm();
-//    
-//    if (sonic_1 == 0)
-//      sonic_1 = MAX_DISTANCE;
-//    if (sonic_2 == 0)
-//      sonic_2 = MAX_DISTANCE;
-//    if (sonic_3 == 0)
-//      sonic_3 = MAX_DISTANCE;
-//    if (sonic_4 == 0)
-//      sonic_4 = MAX_DISTANCE;
-//    
-//    char tx_msg[MSG_SIZE];
-//    tx_msg[0] = 'f';
-//    tx_msg[1] = (sonic_1) & 0xff;
-//    tx_msg[2] = (sonic_2) & 0xff;
-//    tx_msg[3] = (sonic_3) & 0xff;
-//    tx_msg[4] = (sonic_4) & 0xff;
-//    tx_msg[MSG_SIZE - 1] = '\n';
-//
-//    short crc = crc16(tx_msg, MSG_SIZE - 3);
-//    
-//    tx_msg[MSG_SIZE - 3] = (crc >> 8) & 0xff;
-//    tx_msg[MSG_SIZE - 2] = (crc) & 0xff;
-//
-//    Serial.write(tx_msg, MSG_SIZE);
-//    
-//    next_feedback_time_ += 1000 / FEEDBACK_RATE;
-//  }
-  
+  // Get and transmit feedback
+  if (current_time > next_feedback_time_)
+  {
+    int sonic_1 = sonics_[0].ping_cm();
+    int sonic_2 = sonics_[1].ping_cm();
+    int sonic_3 = sonics_[2].ping_cm();
+    int sonic_4 = sonics_[3].ping_cm();
+
+    float m1_speed_fb = (m1_speed_prev_ * 10 * 2 * PI) / 144;
+    float m2_speed_fb = (m2_speed_prev_ * 10 * 2 * PI) / 144;
+    
+    if (sonic_1 == 0)
+      sonic_1 = MAX_DISTANCE;
+    if (sonic_2 == 0)
+      sonic_2 = MAX_DISTANCE;
+    if (sonic_3 == 0)
+      sonic_3 = MAX_DISTANCE;
+    if (sonic_4 == 0)
+      sonic_4 = MAX_DISTANCE;
+    
+    char tx_msg[MSG_SIZE];
+    
+    tx_msg[0] = 'f';
+    
+    tx_msg[1] = (sonic_1) & 0xff;
+    tx_msg[2] = (sonic_2) & 0xff;
+    tx_msg[3] = (sonic_3) & 0xff;
+    tx_msg[4] = (sonic_4) & 0xff;
+
+    tx_msg[5] = ((short)m1_speed_fb >> 8) & 0xff;
+    tx_msg[6] = ((short)m1_speed_fb) & 0xff;
+
+    tx_msg[7] = ((short)m2_speed_fb >> 8) & 0xff;
+    tx_msg[8] = ((short)m2_speed_fb) & 0xff;
+    
+    tx_msg[MSG_SIZE - 1] = '\n';
+
+    short crc = crc16(tx_msg, MSG_SIZE - 3);
+    
+    tx_msg[MSG_SIZE - 3] = (crc >> 8) & 0xff;
+    tx_msg[MSG_SIZE - 2] = (crc) & 0xff;
+
+    Serial.write(tx_msg, MSG_SIZE);
+    
+    next_feedback_time_ += 1000 / FEEDBACK_RATE;
+  }
+//  
     
 
 
