@@ -6,7 +6,7 @@
 
   <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" />
 
-  <node pkg="imrt_base" type="imrt_robot_base_driver.py" name="imrt_robot_base_driver" output="screen" >
+  <node pkg="imrt_base" type="imrt_robot_base" name="imrt_robot_base" output="screen" >
     <remap from="teleop/cmd_vel" to="teleop_joy/cmd_vel" />
   </node>
 
