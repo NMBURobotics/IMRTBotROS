@@ -44,7 +44,7 @@ class IMRTRobot:
         self._use_all_sens = True
 
         self.motor_serial = imrt_base.IMRTRobotSerial()
-        rospy.Subscriber("teleop/cmd_vel", Twist, self.cmd_callback)
+        rospy.Subscriber('teleop/cmd_vel', Twist, self.cmd_callback)
         self.scan_pub = rospy.Publisher('sonics_scan', LaserScan, queue_size=1)
         self.odom_pub = rospy.Publisher('odometry', Odometry, queue_size=1)
         self._tf_broadcaster = tf.TransformBroadcaster()
@@ -52,16 +52,16 @@ class IMRTRobot:
 
         # Open serial port. Exit if serial port cannot be opened
         try:
-            self.motor_serial.connect("/dev/ttyACM0")
+            self.motor_serial.connect('/dev/ttyACM0')
         except:
-            rospy.loginfo("Could not open port. Is your robot connected?\nExiting program")
+            rospy.loginfo('Could not open port. Is your robot connected?\nExiting program')
             sys.exit()
         
             
         # Start serial receive thread
         self.motor_serial.run()
    
-        rospy.loginfo("Running..")
+        rospy.loginfo('Running..')
 
     
     def cmd_callback(self, twist):
@@ -92,9 +92,9 @@ class IMRTRobot:
         quat = tf.transformations.quaternion_from_euler(0, 0, self._robot_yaw)
 
         odom_msg = Odometry()
-        odom_msg.header.frame_id = "odom"
+        odom_msg.header.frame_id = 'odom'
         odom_msg.header.stamp = rospy.Time.now()
-        odom_msg.child_frame_id = "base_link"
+        odom_msg.child_frame_id = 'base_link'
         odom_msg.twist.twist.linear.x = vx
         odom_msg.twist.twist.linear.y = 0
         odom_msg.twist.twist.angular.z = wz
@@ -116,8 +116,8 @@ class IMRTRobot:
         self._tf_broadcaster.sendTransform((self._robot_x, self._robot_y, 0),
                                            quat,
                                            rospy.Time.now(),
-                                           "base_link",
-                                           "odom")
+                                           'base_link',
+                                           'odom')
 
 
     def publish_feedback(self):        
@@ -156,20 +156,17 @@ class IMRTRobot:
 
 def main():
     
-    rospy.init_node('base_driver', anonymous=True)
-    rospy.loginfo("IMRT Robot base driver starting")
+    rospy.init_node('base_driver')
+    rospy.loginfo('IMRT Robot base driver starting')
 
     imrt_robot = IMRTRobot()
-    try: 
-        while not rospy.is_shutdown():
-            imrt_robot.publish_feedback()
-            imrt_robot.publish_odometry()
-            rospy.sleep(0.1)
-    except KeyboardInterrupt:
-        rospy.loginfo("Terminated by user")
-    finally:
-        imrt_robot.shutdown()
-        rospy.loginfo("Goodbye")
+    while not rospy.is_shutdown():
+        imrt_robot.publish_feedback()
+        imrt_robot.publish_odometry()
+        rospy.sleep(0.1)
+
+    imrt_robot.shutdown()
+    rospy.loginfo('Goodbye')
 
 
 

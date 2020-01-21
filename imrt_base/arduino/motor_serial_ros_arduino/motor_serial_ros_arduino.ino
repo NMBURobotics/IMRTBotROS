@@ -13,6 +13,10 @@
 #define ENC2A_PIN A2
 #define ENC2B_PIN A3
 
+#define ERROR_HEADER 1
+#define ERROR_CRC 2
+#define ERROR_MOTOR 3
+
 volatile bool enc1a_state_;
 volatile bool enc1b_state_;
 volatile bool enc2a_state_;
@@ -24,6 +28,7 @@ volatile unsigned long enc1_pos_prev_ = 0;
 volatile unsigned long enc2_pos_prev_ = 0;
 
 unsigned long next_speed_clc_time_ = millis();
+unsigned long prev_speed_clc_time_ = millis();
 double m1_speed_ = 0;
 double m2_speed_ = 0;
 
@@ -109,8 +114,8 @@ void pciSetup(byte pin)
 
 
 
-
-ISR (PCINT1_vect) // handle pin change interrupt for A0 to A5 here
+// handle pin change interrupt
+ISR (PCINT1_vect) 
 {
   bool enc1a_state = digitalRead(ENC1A_PIN);
   bool enc1b_state = digitalRead(ENC1B_PIN);
@@ -132,7 +137,6 @@ ISR (PCINT1_vect) // handle pin change interrupt for A0 to A5 here
     {
       enc1_pos_++;
     }
-
   }
   if (enc1a_changed )
   {
@@ -165,7 +169,6 @@ ISR (PCINT1_vect) // handle pin change interrupt for A0 to A5 here
     {
       enc2_pos_++;
     }
-
   }
   if (enc2a_changed )
   {
@@ -200,16 +203,30 @@ ISR (PCINT1_vect) // handle pin change interrupt for A0 to A5 here
 
 void stopIfFault()
 {
-  if (md.getM1Fault())
+  bool m1_fault = md.getM1Fault();
+  bool m2_fault = md.getM2Fault();
+  if (m1_fault | m2_fault)
   {
-    Serial.println("M1 fault");
-    while(1);
+    // Send error message
+    char tx_msg[MSG_SIZE];
+    tx_msg[0] = 'e';
+    tx_msg[1] = ERROR_MOTOR;
+    tx_msg[2] = m1_fault;
+    tx_msg[3] = m2_fault;
+    tx_msg[MSG_SIZE - 1] = '\n';
+    short crc = crc16(tx_msg, MSG_SIZE - 3);
+    tx_msg[MSG_SIZE - 3] = (crc >> 8) & 0xff;
+    tx_msg[MSG_SIZE - 2] = (crc) & 0xff;
+    
+    while(1)
+    {
+      Serial.write(tx_msg, MSG_SIZE);
+      delay(500);
+    }
+   
   }
-  if (md.getM2Fault())
-  {
-    Serial.println("M2 fault");
-    while(1);
-  }
+
+
 }
 
 
@@ -271,6 +288,12 @@ int i;
   enc2b_state_ = digitalRead(ENC2B_PIN);
 }
 
+
+
+
+
+
+
 void loop()
 {
 
@@ -288,115 +311,130 @@ void loop()
     // If the checkums match, we accept the command
     if (crc_msg == crc_calc)
     {
-      m1_target_ = ( ( ( (rx_buffer_[1] & 0xff) << 8 ) | ( (rx_buffer_[2] & 0xff) ) ) * 144 / (2 * PI * 10) );
-      m2_target_ = ( ( ( (rx_buffer_[3] & 0xff) << 8 ) | ( (rx_buffer_[4] & 0xff) ) ) * 144 / (2 * PI * 10) );
+      m1_target_ =   ( (rx_buffer_[1] & 0xff) << 8  |  (rx_buffer_[2] & 0xff ) ) * (144 / (2 * PI * 100)) ;
+      m2_target_ =   ( (rx_buffer_[3] & 0xff) << 8  |  (rx_buffer_[4] & 0xff ) ) * (144 / (2 * PI * 100)) ;
       
       prev_cmd_msg_time_ = current_time;
     }
     else
     {
-      Serial.println("BAD CRC!");
+      // Send CRC error message
+      char tx_msg[MSG_SIZE];
+      tx_msg[0] = 'e';
+      tx_msg[1] = ERROR_CRC;
+      tx_msg[MSG_SIZE - 1] = '\n';
+      short crc = crc16(tx_msg, MSG_SIZE - 3);
+      tx_msg[MSG_SIZE - 3] = (crc >> 8) & 0xff;
+      tx_msg[MSG_SIZE - 2] = (crc) & 0xff;
+      Serial.write(tx_msg, MSG_SIZE);
     }
+    
     msg_complete_ = false;
   }
 
 
-  // If we stop receiving serial messages we want the target speed to be zero
-  if (current_time > prev_cmd_msg_time_ + CMD_MSG_TIMEOUT_DURATION)
-  {
-    m1_cmd_ = 0;
-    m2_cmd_ = 0;
+  
 
-    m1_integral_ = 0;
-    m2_integral_ = 0;
-  }
 
-  else if (current_time > next_speed_clc_time_)
+
+
+  if (current_time > next_speed_clc_time_)
   {
 
     long m1_delta_pos = enc1_pos_ - enc1_pos_prev_;
     long m2_delta_pos = enc2_pos_ - enc2_pos_prev_;
 
-    m1_speed_ = (m1_delta_pos) / 0.050;
-    m2_speed_ = (m2_delta_pos) / 0.050;
+    m1_speed_ = (m1_delta_pos) / ((current_time - prev_speed_clc_time_) / 1000.);
+    m2_speed_ = (m2_delta_pos) / ((current_time - prev_speed_clc_time_) / 1000.);
 
     next_speed_clc_time_ += SPEED_CLC_PERIOD;
     
     enc1_pos_prev_ = enc1_pos_;
     enc2_pos_prev_ = enc2_pos_;
+    prev_speed_clc_time_ = current_time;
 
-    double m1_error = m1_target_ - m1_speed_;
-    double m1_prop = kp_ * m1_error;
-    m1_integral_ += (ki_ * m1_error) * 1./SPEED_CLC_PERIOD;
-    double m1_deriv = 0.0 * (m1_speed_ - m1_speed_prev_);
-    if (fabs(m1_integral_) > integral_limit_)
-      m1_integral_ = integral_limit_ * (1-2 *(m1_integral_ < 0));
+    // If are receiving serial messages we drive, else we want the target speed to be zero
+    if (current_time < prev_cmd_msg_time_ + CMD_MSG_TIMEOUT_DURATION)
+    {
 
-
-    double m2_error = m2_target_ - m2_speed_;
-    double m2_prop = kp_ * m2_error;
-    m2_integral_ += (ki_ * m2_error) * 1./SPEED_CLC_PERIOD;
-    double m2_deriv = kd_ * (m2_speed_ - m2_speed_prev_);
-    if (fabs(m2_integral_) > integral_limit_)
-      m2_integral_ = integral_limit_ * (1-2 *(m2_integral_ < 0));
-
-
-
+      double m1_error = m1_target_ - m1_speed_;
+      double m1_prop = kp_ * m1_error;
+      m1_integral_ += (ki_ * m1_error) * 1./SPEED_CLC_PERIOD;
+      double m1_deriv = kd_ * (m1_speed_ - m1_speed_prev_);
+      if (fabs(m1_integral_) > integral_limit_)
+        m1_integral_ = integral_limit_ * (1-2 *(m1_integral_ < 0));
+  
+  
+      double m2_error = m2_target_ - m2_speed_;
+      double m2_prop = kp_ * m2_error;
+      m2_integral_ += (ki_ * m2_error) * 1./SPEED_CLC_PERIOD;
+      double m2_deriv = kd_ * (m2_speed_ - m2_speed_prev_);
+      if (fabs(m2_integral_) > integral_limit_)
+        m2_integral_ = integral_limit_ * (1-2 *(m2_integral_ < 0));
+  
+  
+  
+     
+  
       
-
-
-    
-    m1_cmd_ = (m1_prop + m1_integral_ + m1_deriv);
-    m2_cmd_ = (m2_prop + m2_integral_ + m2_deriv);
-
-
-    if (fabs(m1_cmd_) > 0 && m1_speed_ == 0)
-    {
-      if (m1_stall_count_ < stall_detect_thress_)
+      m1_cmd_ = (m1_prop + m1_integral_ + m1_deriv);
+      m2_cmd_ = (m2_prop + m2_integral_ + m2_deriv);
+  
+  
+      if (fabs(m1_cmd_) > 0 && m1_speed_ == 0)
       {
-        m1_stall_count_ ++;
+        if (m1_stall_count_ < stall_detect_thress_)
+        {
+          m1_stall_count_ ++;
+        }
+        else
+        {
+          m1_integral_ = ((fabs(m1_integral_) > max_stall_integral_) ? max_stall_integral_ * (1-2 *(m1_integral_ < 0)) : m1_integral_);
+        }
       }
       else
       {
-        m1_integral_ = ((fabs(m1_integral_) > max_stall_integral_) ? max_stall_integral_ * (1-2 *(m1_integral_ < 0)) : m1_integral_);
-        //Serial.print("  STALL 1");
+        m1_stall_count_ = 0;
       }
-    }
-    else
-    {
-      m1_stall_count_ = 0;
-    }
-    
-    if (fabs(m2_cmd_) > 0 && m2_speed_ == 0)
-    {
-      if (m2_stall_count_ < stall_detect_thress_)
+      
+      if (fabs(m2_cmd_) > 0 && m2_speed_ == 0)
       {
-        m2_stall_count_ ++;
+        if (m2_stall_count_ < stall_detect_thress_)
+        {
+          m2_stall_count_ ++;
+        }
+        else
+        {
+          m2_integral_ = ((fabs(m2_integral_) > max_stall_integral_) ? max_stall_integral_ * (1-2 *(m2_integral_ < 0)) : m2_integral_);
+        }
       }
       else
       {
-        m2_integral_ = ((fabs(m2_integral_) > max_stall_integral_) ? max_stall_integral_ * (1-2 *(m2_integral_ < 0)) : m2_integral_);
-        //Serial.print("  STALL 2  ");
+        m2_stall_count_ = 0;
       }
+
     }
     else
     {
-      m2_stall_count_ = 0;
-    }
+      m1_cmd_ = 0;
+      m2_cmd_ = 0;
 
+      m1_integral_ = 0;
+      m2_integral_ = 0;
+    }
+    
     m1_speed_prev_ = m1_speed_;
     m2_speed_prev_ = m2_speed_;
+
+    // Send commands to motor controller
+    md.setM1Speed(m1_cmd_);
+    md.setM2Speed(m2_cmd_);
+    stopIfFault();
     
   }
 
 
 
-
-
-  // Send commands to motor controller
-  md.setM1Speed(m1_cmd_);
-  md.setM2Speed(m2_cmd_);
-  stopIfFault();
 
 
   // Get and transmit feedback
@@ -407,8 +445,8 @@ void loop()
     int sonic_3 = sonics_[2].ping_cm();
     int sonic_4 = sonics_[3].ping_cm();
 
-    float m1_speed_fb = (m1_speed_prev_ * 10 * 2 * PI) / 144;
-    float m2_speed_fb = (m2_speed_prev_ * 10 * 2 * PI) / 144;
+    int m1_speed_fb = (m1_speed_ * 100. * 2 * PI) / 144.;
+    int m2_speed_fb = (m2_speed_ * 100. * 2 * PI) / 144.;
     
     if (sonic_1 == 0)
       sonic_1 = MAX_DISTANCE;
@@ -428,11 +466,11 @@ void loop()
     tx_msg[3] = (sonic_3) & 0xff;
     tx_msg[4] = (sonic_4) & 0xff;
 
-    tx_msg[5] = ((short)m1_speed_fb >> 8) & 0xff;
-    tx_msg[6] = ((short)m1_speed_fb) & 0xff;
+    tx_msg[5] = (m1_speed_fb >> 8) & 0xff;
+    tx_msg[6] = (m1_speed_fb) & 0xff;
 
-    tx_msg[7] = ((short)m2_speed_fb >> 8) & 0xff;
-    tx_msg[8] = ((short)m2_speed_fb) & 0xff;
+    tx_msg[7] = (m2_speed_fb >> 8) & 0xff;
+    tx_msg[8] = (m2_speed_fb) & 0xff;
     
     tx_msg[MSG_SIZE - 1] = '\n';
 
@@ -445,7 +483,7 @@ void loop()
     
     next_feedback_time_ += 1000 / FEEDBACK_RATE;
   }
-//  
+
     
 
 
@@ -469,7 +507,15 @@ void serialEvent()
       }
       else
       {
-        Serial.println("BAD HEADER");
+        // Send header error message
+        char tx_msg[MSG_SIZE];
+        tx_msg[0] = 'e';
+        tx_msg[1] = ERROR_HEADER;
+        tx_msg[MSG_SIZE - 1] = '\n';
+        short crc = crc16(tx_msg, MSG_SIZE - 3);
+        tx_msg[MSG_SIZE - 3] = (crc >> 8) & 0xff;
+        tx_msg[MSG_SIZE - 2] = (crc) & 0xff;
+        Serial.write(tx_msg, MSG_SIZE);
       }
     }
     else

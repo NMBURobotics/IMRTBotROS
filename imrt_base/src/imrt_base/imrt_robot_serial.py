@@ -18,12 +18,12 @@ from math import pi
 class IMRTRobotSerial :
 
     MSG_SIZE = 26
-    SPEED_MULTIPLIER = 10
+    SPEED_MULTIPLIER = 100
 
     # Constructor
     def __init__(self):
 
-        print(__name__ + ": NMBU Robotics imrt100 motor serial")
+        print'{}: NMBU Robotics imrt100 motor serial'.format(__name__)
 
         # Mutex
         self._mutex = threading.Lock()
@@ -50,7 +50,7 @@ class IMRTRobotSerial :
         self._run_event.set()
 
         self.shutdown_now = False
-        signal.signal(signal.SIGINT, self._shutdown_signal)
+        #signal.signal(signal.SIGINT, self._shutdown_signal)
         
 
         # Thread for receiving data through serial
@@ -60,9 +60,9 @@ class IMRTRobotSerial :
 
         
     # Method for opening serial port
-    def connect(self, port_name="/dev/ttyACM0"):
+    def connect(self, port_name='/dev/ttyACM0'):
         self.serial_port_ = serial.Serial(port_name, baudrate=115200, timeout=3)
-        print(__name__ + ": Connected to: ", port_name)
+        print '{}: Connected to: {}'.format(__name__, port_name)
         return True
 
 
@@ -79,14 +79,6 @@ class IMRTRobotSerial :
     def run(self):
         self._rx_thread_.start()
 
-
-
-
-    # Method for handling _shutdown signals
-    def _shutdown_signal(self, signum, frame):
-        print(__name__ + ": Shutdown signal received")
-        self.shutdown_now = True
-        self.shutdown()
 
 
 
@@ -109,7 +101,6 @@ class IMRTRobotSerial :
         # Values that cannot fit into one byte are split into two bytes (xx_high, xx_low) using bitwise logic
         cmd_1 = int(self.SPEED_MULTIPLIER * v1 / self._wheel_radius )
         cmd_2 = int(self.SPEED_MULTIPLIER * v2 / self._wheel_radius )
-        #print "cmd_1: ", cmd_1, ", cmd_2: ", cmd_2
         tx_msg = [0] * self.MSG_SIZE
 
         tx_msg[0]  = ord('c')               # msg header
@@ -257,7 +248,6 @@ class IMRTRobotSerial :
                 crc_calc = self._crc16(rx_msg[0:-3])
                 crc_msg = (rx_msg[-3] & 0xff) << 8 | (rx_msg[-2] & 0xff)
                 crc_ok = (crc_calc == crc_msg)
-                print "len ok"
 
                 if crc_ok and rx_msg[0] == ord('f'):
                     self._mutex.acquire()
@@ -269,20 +259,18 @@ class IMRTRobotSerial :
                     self._motor_2_current = (rx_msg[-9] & 0xff) << 8 | (rx_msg[-8] & 0xff)
                     self._motor_1_speed  = float(self._convert_byte(rx_msg[5] & 0xff) << 8 | (rx_msg[6] & 0xff)) / self.SPEED_MULTIPLIER * self._wheel_radius
                     self._motor_2_speed  = float(self._convert_byte(rx_msg[7] & 0xff) << 8 | (rx_msg[8] & 0xff)) / self.SPEED_MULTIPLIER * self._wheel_radius
-                    print "m1: ", self._motor_1_speed, ", m2: ", self._motor_2_speed
                     self._mutex.release()
+                elif crc_ok and rx_msg[0] == ord('e'):
+                    print 'Error message received! Error is: {}'.foramt(rx_msg[1])
                 else:
-                    print "crc not ok"
                     self.serial_port_.read(size=1)
-            else:
-                print "len not ok"
                     
 
 
   
 
 
-        print(__name__ + ": Serial receive thread has finished cleanly")
+        print '{}: Serial receive thread has finished cleanly'.format(__name__)
         
         
 
@@ -320,9 +308,9 @@ class IMRTRobotSerial :
 def main(argv) :
 
     # Example program
-    print("Example program")
+    print 'Example program'
     if len(argv) == 1 : 
-        port_name = "/dev/ttyACM0"
+        port_name = '/dev/ttyACM0'
     else :
         port_name = argv[1]
 
@@ -332,7 +320,7 @@ def main(argv) :
     # Open serial port, exit if serial port can't be opened
     connected = motor_serial.connect(port_name)
     if not connected:
-        print("Exiting program")
+        print 'Exiting program'
         sys.exit()
         
     # Spin receive thread
@@ -342,14 +330,14 @@ def main(argv) :
     # Now we will send some motor commands until the program is terminated by the user
     speed = 0
     while not motor_serial.shutdown_now :
-            speed = (speed + 10) % 400
-            motor_serial.send_command(speed, 400-speed)
-            time.sleep(0.1)
+        speed = (speed + 10) % 400
+        motor_serial.send_command(speed, 400-speed)
+        time.sleep(0.1)
 
 
     # Exit
     motor_serial.shutdown()
-    print("Exiting program")
+    print 'Exiting program'
 
 
 
