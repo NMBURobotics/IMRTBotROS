@@ -261,7 +261,7 @@ class IMRTRobotSerial :
                     self._motor_2_speed  = float(self._convert_byte(rx_msg[7] & 0xff) << 8 | (rx_msg[8] & 0xff)) / self.SPEED_MULTIPLIER * self._wheel_radius
                     self._mutex.release()
                 elif crc_ok and rx_msg[0] == ord('e'):
-                    print 'Error message received! Error is: {}'.foramt(rx_msg[1])
+                    print 'Error message received! Error is: {}'.format(rx_msg[1])
                 else:
                     self.serial_port_.read(size=1)
                     
@@ -329,15 +329,19 @@ def main(argv) :
 
     # Now we will send some motor commands until the program is terminated by the user
     speed = 0
-    while not motor_serial.shutdown_now :
-        speed = (speed + 10) % 400
-        motor_serial.send_command(speed, 400-speed)
-        time.sleep(0.1)
 
+    try:
+        while True :
+            speed = (speed + 0.1) % 1
+            motor_serial.send_command(speed, 1-speed)
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        print 'Terminated by user'
 
-    # Exit
-    motor_serial.shutdown()
-    print 'Exiting program'
+    finally:
+        # Exit
+        motor_serial.shutdown()
+        print 'Exiting program'
 
 
 
