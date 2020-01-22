@@ -5,15 +5,12 @@
 
 #define V_MAX 500
 #define V_STEP 25
-
 #define CMD_RATE 40
 #define FEEDBACK_RATE 10
-
 #define MSG_SIZE 26
-
 #define POLY 0x8408
-
 #define CMD_MSG_TIMEOUT_DURATION 500
+
 
 
 #define SONIC_NUM 4
@@ -41,6 +38,7 @@ bool msg_complete_ = false;
 
 
 
+double command_scaling_factor_ = 2.;
 
 void stopIfFault()
 {
@@ -61,6 +59,8 @@ int calculateCommand(int current_speed, int target_speed)
   int error;
   int command;
 
+  target_speed *= command_scaling_factor_;
+
   // Make sure target is within legal range
   if (abs(target_speed) > V_MAX)
   {
@@ -79,8 +79,14 @@ int calculateCommand(int current_speed, int target_speed)
     command = current_speed + V_STEP * (error / abs(error));
   }
 
+
   return command;
   
+}
+
+int fakeFeedback(int cmd)
+{
+  return cmd / command_scaling_factor_;
 }
 
 
@@ -140,8 +146,8 @@ void loop()
     // If the checkums match, we accept the command
     if (crc_msg == crc_calc)
     {
-      target_v1_ = ( (rx_buffer_[1] & 0xff) << 8 ) | ( (rx_buffer_[2] & 0xff) );
-      target_v2_ = ( (rx_buffer_[3] & 0xff) << 8 ) | ( (rx_buffer_[4] & 0xff) );
+      target_v1_ = (( (rx_buffer_[1] & 0xff) << 8 ) | ( (rx_buffer_[2] & 0xff) )) * (144 / (2 * PI * 100));
+      target_v2_ = (( (rx_buffer_[3] & 0xff) << 8 ) | ( (rx_buffer_[4] & 0xff) )) * (144 / (2 * PI * 100));
       prev_cmd_msg_time_ = current_time;
     }
     else
@@ -182,6 +188,9 @@ void loop()
     int sonic_2 = sonics_[1].ping_cm();
     int sonic_3 = sonics_[2].ping_cm();
     int sonic_4 = sonics_[3].ping_cm();
+
+    int m1_speed_fb = (fakeFeedback(m1_cmd_) * 100. * 2 * PI) / 144.;
+    int m2_speed_fb = (fakeFeedback(m2_cmd_) * 100. * 2 * PI) / 144.;
     
     if (sonic_1 == 0)
       sonic_1 = MAX_DISTANCE;
@@ -198,6 +207,13 @@ void loop()
     tx_msg[2] = (sonic_2) & 0xff;
     tx_msg[3] = (sonic_3) & 0xff;
     tx_msg[4] = (sonic_4) & 0xff;
+
+    tx_msg[5] = (m1_speed_fb >> 8) & 0xff;
+    tx_msg[6] = (m1_speed_fb) & 0xff;
+
+    tx_msg[7] = (m2_speed_fb >> 8) & 0xff;
+    tx_msg[8] = (m2_speed_fb) & 0xff;
+
     tx_msg[MSG_SIZE - 1] = '\n';
 
     short crc = crc16(tx_msg, MSG_SIZE - 3);
