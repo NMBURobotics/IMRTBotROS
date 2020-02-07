@@ -1,0 +1,15 @@
+<?xml version="1.0" ?>
+
+<launch>
+
+  <!-- Robot base -->
+  <include file="$(find imrt_base)/launch/base_bringup.launch" />
+
+  <!-- Teleop -->
+  <include file="$(find imrt_teleop)/launch/teleop_logitech_f710.launch" />
+  
+  <!-- Twist mux -->
+  <include file="$(find imrt_bringup)/launch/twist_mux.launch" />
+
+
+</launch>
