@@ -54,12 +54,17 @@ class IMRTRobot:
             self.motor_serial.set_wheel_diameter(wheel_diameter)
         except:
             rospy.loginfo('wheel_diameter parameter not found in node namespace. Will use default value')
+        port = '/dev/ttyACM0'
+        try:
+            port = rospy.get_param("~port")
+        except:
+            rospy.loginfo('port not found on paramter server. Will use default value')
 
         # Open serial port. Exit if serial port cannot be opened
         try:
-            self.motor_serial.connect('/dev/ttyACM0')
+            self.motor_serial.connect(port)
         except:
-            rospy.loginfo('Could not open port. Is your robot connected?\nExiting program')
+            rospy.loginfo('Could not open port: {}. Is your robot connected?\nExiting program'.format(port))
             sys.exit()
         
             

@@ -2,12 +2,16 @@
 
 <launch>
 
-  <param name="robot_description" command="$(find xacro)/xacro '$(find imrt_base)/urdf/imrt_robot_description.xacro'" />
+  <arg name="port" default="/dev/ttyACM0" />
+  <arg name="robot_description_file" default="$(find imrt_base)/urdf/imrt_robot_description.xacro" />
+
+  <param name="robot_description" command="$(find xacro)/xacro '$(arg robot_description_file)'" />
 
   <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" />
 
   <node pkg="imrt_base" type="imrt_robot_base" name="imrt_robot_base" output="screen" >
     <param name="wheel_diameter" value="0.075" />
+    <param name="port" value="$(arg port)" />
     <remap from="cmd_vel" to="twist_mux/cmd_vel" />
   </node>
 
