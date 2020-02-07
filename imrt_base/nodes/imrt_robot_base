@@ -44,11 +44,16 @@ class IMRTRobot:
         self._use_all_sens = True
 
         self.motor_serial = imrt_base.IMRTRobotSerial()
-        rospy.Subscriber('teleop/cmd_vel', Twist, self.cmd_callback)
+        rospy.Subscriber('cmd_vel', Twist, self.cmd_callback)
         self.scan_pub = rospy.Publisher('sonics_scan', LaserScan, queue_size=1)
         self.odom_pub = rospy.Publisher('odometry', Odometry, queue_size=1)
         self._tf_broadcaster = tf.TransformBroadcaster()
 
+        try:
+            wheel_diameter = rospy.get_param("~wheel_diameter")
+            self.motor_serial.set_wheel_diameter(wheel_diameter)
+        except:
+            rospy.loginfo('wheel_diameter parameter not found in node namespace. Will use default value')
 
         # Open serial port. Exit if serial port cannot be opened
         try:

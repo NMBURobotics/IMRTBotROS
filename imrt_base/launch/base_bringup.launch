@@ -7,7 +7,8 @@
   <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" />
 
   <node pkg="imrt_base" type="imrt_robot_base" name="imrt_robot_base" output="screen" >
-    <remap from="teleop/cmd_vel" to="teleop_joy/cmd_vel" />
+    <param name="wheel_diameter" value="0.075" />
+    <remap from="cmd_vel" to="twist_mux/cmd_vel" />
   </node>
 
 </launch>
