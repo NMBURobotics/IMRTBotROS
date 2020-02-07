@@ -3,7 +3,10 @@
 <launch>
 
   <!-- Robot base -->
-  <include file="$(find imrt_base)/launch/base_bringup.launch" />
+  <include file="$(find imrt_base)/launch/base_bringup.launch">
+    <arg name="port" value="/dev/ttyACM0" />
+    <arg name="robot_description_file" value="$(find imrt_bringup)/urdf/imrt_robot_description.xacro" />
+  </include>
 
   <!-- Teleop -->
   <include file="$(find imrt_teleop)/launch/teleop_logitech_f710.launch" />
